@@ -62,12 +62,6 @@ ro.o: ro.s exec-3000.bin
 deflate-fixed.o: deflate-fixed.c
 	$(BIN_PATH)/clang $(CFG_FILE) $(MICROBIT_OPTIONS) -g -c -o $@ $<
 
-# hello.o: hello.c compressed.bin
-# 	$(BIN_PATH)/clang $(CFG_FILE) $(MICROBIT_OPTIONS) -DDECOMPRESSED_DATA_SIZE="$$(stat -c %s compressed.bin)" -g -c -o $@ $<
-
-# hello.o: hello.c
-# 	$(BIN_PATH)/clang $(CFG_FILE) $(MICROBIT_OPTIONS) -g -c -o $@ $<
-
 # Find out the demo file's entry point.
 decompress.o: decompress.S exec.elf
 	entry=$$($(BIN_PATH)/llvm-readobj --elf-output-style=JSON --file-header exec.elf | python3 -c 'import sys, json; print(json.load(sys.stdin)[0]["ElfHeader"]["Entry"])'); \
@@ -76,8 +70,8 @@ decompress.o: decompress.S exec.elf
 
 compression-demo.elf: decompress.o deflate-fixed.o ro.o rw-compressed.o
 	$(BIN_PATH)/clang -E -P -x c -DLIBC_LD_FILE=$(LIBC_LD_FILE) ../../ldscripts/microbit.ld.in -o microbit.ld
-	$(BIN_PATH)/clang -Wl,--verbose $(CFG_FILE) $(MICROBIT_OPTIONS) $(CRT_SEMIHOST) $(MATH_LIB) -g -T outer.ld -o $@ $^
-# 	$(BIN_PATH)/clang -Wl,--verbose $(CFG_FILE) $(MICROBIT_OPTIONS) $(CRT_SEMIHOST) $(MATH_LIB) -g -T microbit.ld -o $@ $^
+# 	$(BIN_PATH)/clang -Wl,--verbose $(CFG_FILE) $(MICROBIT_OPTIONS) $(CRT_SEMIHOST) $(MATH_LIB) -g -T outer.ld -o $@ $^
+	$(BIN_PATH)/ld.lld $^ -Bstatic -T outer.ld -o $@
 
 %.hex: %.elf
 	$(BIN_PATH)/llvm-objcopy --output-target ihex $< $@
