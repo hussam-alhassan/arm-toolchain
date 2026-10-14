@@ -382,7 +382,6 @@ void deflate_fixed(unsigned char *outptr, const unsigned char *inptr)
      * loop.
      */
     if (bfinal)
-      // _bp();
       break;
   }
 }

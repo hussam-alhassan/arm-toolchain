@@ -58,4 +58,4 @@ PROVIDE(__heap_end = __stack - __stack_size);
 PROVIDE(__heap_size = __heap_end - __heap_start);
 
 /* The decompressor will initialise .data. */
-PROVIDE(__data_size = 0);
+/* PROVIDE(__data_size = 0); */

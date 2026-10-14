@@ -13,12 +13,12 @@ build: compression-demo.elf
 # places every segment at its execution-time address.
 exec.elf: demo.c inner.ld
 	$(BIN_PATH)/clang $(MICROBIT_TARGET) -print-target-triple
-# 	$(BIN_PATH)/clang -E -P -x c -DLIBC_LD_FILE=$(LIBC_LD_FILE) ../../ldscripts/microbit.ld.in -o microbit.ld
-	$(BIN_PATH)/clang $(MICROBIT_TARGET) $(CRT_SEMIHOST) -T inner.ld -o $@ $<
+	$(BIN_PATH)/clang -E -P -x c -DLIBC_LD_FILE=$(LIBC_LD_FILE) ../../ldscripts/microbit.ld.in -o microbit.ld
+	$(BIN_PATH)/clang $(MICROBIT_TARGET) $(CRT_SEMIHOST) -T microbit.ld -o $@ $<
 
 # Now extract the binary data of each PT_LOAD segment. Because we manually
 # specified a fixed set of those segments, we know what filenames we expect
-# to get out: exec-10000.bin for the RO data, and exec-21000000.bin for the RW.
+# to get out: exec-3000.bin for the RO data, and exec-20002000.bin for the RW.
 #
 # Note also that we use --zi, so that the RW data blob will physically contain
 # zero bytes on the end covering the ZI data. Including these as the input to
@@ -53,8 +53,6 @@ check-compression: rw-decompressed.bin exec-20002000.bin
 # Compile rw-compressed.o which ensures the compressed data ends up in the right place
 rw-compressed.o: rw-compressed.s rw-compressed.bin
 	$(BIN_PATH)/clang $(MICROBIT_TARGET) -g -c -o $@ $<
-	$(BIN_PATH)/llvm-readelf -S $@
-	$(BIN_PATH)/llvm-readelf -s $@
 
 ro.o: ro.s exec-3000.bin 
 	$(BIN_PATH)/clang $(MICROBIT_TARGET) -c -o $@ $<
@@ -69,20 +67,22 @@ decompress.o: decompress.S exec.elf
 	$(BIN_PATH)/clang $(MICROBIT_TARGET) -DDECOMPRESSED_ENTRY="$$entry" -c $< -o $@
 
 compression-demo.elf: decompress.o deflate-fixed.o ro.o rw-compressed.o
-	$(BIN_PATH)/clang -E -P -x c -DLIBC_LD_FILE=$(LIBC_LD_FILE) ../../ldscripts/microbit.ld.in -o microbit.ld
-# 	$(BIN_PATH)/clang -Wl,--verbose $(CFG_FILE) $(MICROBIT_OPTIONS) $(CRT_SEMIHOST) $(MATH_LIB) -g -T outer.ld -o $@ $^
 	$(BIN_PATH)/ld.lld $^ -Bstatic -T outer.ld -o $@
 
 %.hex: %.elf
 	$(BIN_PATH)/llvm-objcopy --output-target ihex $< $@
 
-run: compression-demo.hex check-compression
-	qemu-system-arm -M microbit $(QEMU_SEMIHOSTING) -device loader,file=$<,cpu-num=0
+# run: compression-demo.hex check-compression
+# 	qemu-system-arm -M microbit $(QEMU_SEMIHOSTING) -device loader,file=$<,cpu-num=0
+
+run: exec.elf
+	qemu-system-arm -M microbit $(QEMU_SEMIHOSTING) -device loader,file=$<
+
 
 debug: compression-demo.elf
 	qemu-system-arm -M microbit $(QEMU_SEMIHOSTING) -device loader,file=$<,cpu-num=0 -s -S
 
 clean:
-	rm -f *.elf *.hex microbit.ld *.bin *.o
+	rm -f *.elf *.hex microbit.ld *.bin *.o *.out
 
 .PHONY: clean run debug
